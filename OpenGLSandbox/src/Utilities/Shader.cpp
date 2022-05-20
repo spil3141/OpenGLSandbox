@@ -88,5 +88,11 @@ namespace OpenGLSandbox {
 		int vertexColorLocation = glGetUniformLocation(m_RendererID, uniformName.c_str());
 		glUniform4f(vertexColorLocation, x, y, x, w);
 	}
+
+	void Shader::SetUniform1i(const std::string& uniformName, int data)
+	{
+		int attributeLocation = glGetUniformLocation(m_RendererID, uniformName.c_str());
+		glUniform1i(attributeLocation, data);
+	}
 }
 

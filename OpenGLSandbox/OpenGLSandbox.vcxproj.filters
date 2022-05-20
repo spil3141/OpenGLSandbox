@@ -40,7 +40,11 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="res\Shaders\VertexShader.shader" />
-    <None Include="res\Shaders\FragmentShader.shader" />
+    <None Include="res\Shaders\QuadVertexShader.shader" />
+    <None Include="res\Shaders\QuadFragmentShader.shader" />
+    <None Include="res\Shaders\ScreenFragment.shader" />
+    <None Include="res\Shaders\ScreenVertex.shader" />
+    <None Include="res\Shaders\TextF.shader" />
+    <None Include="res\Shaders\TextV.shader" />
   </ItemGroup>
 </Project>
