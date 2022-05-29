@@ -2,9 +2,10 @@
 #include <iostream>
 #include <cassert>
 #include "Utilities/Timer.h"
-
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include "msdfgen.h"
+#include "msdfgen-ext.h"
 
 namespace OpenGLSandbox {
 
@@ -127,12 +128,10 @@ namespace OpenGLSandbox {
 			return ;
 		}
 
-		// find path to font
-		std::filesystem::path font_path("res/Fonts/Forte/ForteRegular.ttf");
 
 		// load font as face
 		FT_Face face;
-		if (FT_New_Face(ft, font_path.string().c_str(), 0, &face)) {
+		if (FT_New_Face(ft, "res/Fonts/Forte/ForteRegular.ttf", 0, &face)) {
 			std::cout << "ERROR::FREETYPE: Failed to load font" << std::endl;
 			return ;
 		}
@@ -262,6 +261,28 @@ namespace OpenGLSandbox {
 
 	void Application::Run()
 	{
+		//msdfgen::FreetypeHandle* ft = msdfgen::initializeFreetype();
+		//if (ft) {
+		//	msdfgen::FontHandle* font = msdfgen::loadFont(ft, "C:\\Windows\\Fonts\\arialbd.ttf");
+		//	if (font) {
+		//		msdfgen::Shape shape;
+		//		if (msdfgen::loadGlyph(shape, font, 'A')) {
+		//			shape.normalize();
+		//			//                      max. angle
+		//			msdfgen::edgeColoringSimple(shape, 3.0);
+		//			//           image width, height
+		//			msdfgen::Bitmap<float, 3> msdf(32, 32);
+		//			//                     range, scale, translation
+		//			msdfgen::generateMSDF(msdf, shape, 4.0, 1.0, msdfgen::Vector2(4.0, 4.0));
+		//			savePng(msdf, "output.png");
+		//		}
+		//		msdfgen::destroyFont(font);
+		//	}
+		//	msdfgen::deinitializeFreetype(ft);
+		//}
+
+
+
 		float vertices[] = {
 		//  positions           texture coordinates 
 		 0.5f,  0.5f, 0.0f,       1.0f, 1.0f,        // top right 
