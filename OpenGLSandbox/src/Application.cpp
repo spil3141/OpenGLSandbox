@@ -6,107 +6,19 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "msdfgen.h"
 #include "msdfgen-ext.h"
+#include "stb_image.h"
 
 namespace OpenGLSandbox {
 
+	static void OnResize(GLFWwindow* window, int width, int height);
 
-	void Application::RenderText(unsigned int VAO, unsigned int VBO, Shader& shader, std::string text, float x, float y, float scale, glm::vec3 color)
-	{
-		// activate corresponding render state	
-		shader.Bind();
-		glUniform3f(glGetUniformLocation(shader.GetRendererID(), "textColor"), color.x, color.y, color.z);
-		glActiveTexture(GL_TEXTURE0);
-		glBindVertexArray(VAO);
-
-		// iterate through all characters
-		std::string::const_iterator c;
-		for (c = text.begin(); c != text.end(); c++)
-		{
-			Character ch = Characters[*c];
-
-			float xpos = x + ch.Bearing.x * scale;
-			float ypos = y - (ch.Size.y - ch.Bearing.y) * scale;
-
-			float w = ch.Size.x * scale;
-			float h = ch.Size.y * scale;
-			// update VBO for each character
-			float vertices[6][4] = {
-				{ xpos,     ypos + h,   0.0f, 0.0f },
-				{ xpos,     ypos,       0.0f, 1.0f },
-				{ xpos + w, ypos,       1.0f, 1.0f },
-
-				{ xpos,     ypos + h,   0.0f, 0.0f },
-				{ xpos + w, ypos,       1.0f, 1.0f },
-				{ xpos + w, ypos + h,   1.0f, 0.0f }
-			};
-			// render glyph texture over quad
-			glBindTexture(GL_TEXTURE_2D, ch.TextureID);
-			// update content of VBO memory
-			glBindBuffer(GL_ARRAY_BUFFER, VBO);
-			glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); // be sure to use glBufferSubData and not glBufferData
-
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			// render quad
-			glDrawArrays(GL_TRIANGLES, 0, 6);
-			// now advance cursors for next glyph (note that advance is number of 1/64 pixels)
-			x += (ch.Advance >> 6) * scale; // bitshift by 6 to get value in pixels (2^6 = 64 (divide amount of 1/64th pixels by 64 to get amount of pixels))
-		}
-		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);
-	}
-
-	static void OnResize(GLFWwindow* window, int width, int height)
-	{
-		// make sure the viewport matches the new window dimensions; note that width and 
-		// height will be significantly larger than specified on retina displays.
-		glViewport(0, 0, width, height);
-	}
-	
 	static void APIENTRY glDebugOutput(GLenum source,
 		GLenum type,
 		unsigned int id,
 		GLenum severity,
 		GLsizei length,
 		const char* message,
-		const void* userParam)
-	{
-		if (id == 131169 || id == 131185 || id == 131218 || id == 131204) return; // ignore these non-significant error codes
-
-		std::cout << "---------------" << std::endl;
-		std::cout << "Debug message (" << id << "): " << message << std::endl;
-
-		switch (source)
-		{
-		case GL_DEBUG_SOURCE_API:             std::cout << "Source: API"; break;
-		case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   std::cout << "Source: Window System"; break;
-		case GL_DEBUG_SOURCE_SHADER_COMPILER: std::cout << "Source: Shader Compiler"; break;
-		case GL_DEBUG_SOURCE_THIRD_PARTY:     std::cout << "Source: Third Party"; break;
-		case GL_DEBUG_SOURCE_APPLICATION:     std::cout << "Source: Application"; break;
-		case GL_DEBUG_SOURCE_OTHER:           std::cout << "Source: Other"; break;
-		} std::cout << std::endl;
-
-		switch (type)
-		{
-		case GL_DEBUG_TYPE_ERROR:               std::cout << "Type: Error"; break;
-		case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: std::cout << "Type: Deprecated Behaviour"; break;
-		case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  std::cout << "Type: Undefined Behaviour"; break;
-		case GL_DEBUG_TYPE_PORTABILITY:         std::cout << "Type: Portability"; break;
-		case GL_DEBUG_TYPE_PERFORMANCE:         std::cout << "Type: Performance"; break;
-		case GL_DEBUG_TYPE_MARKER:              std::cout << "Type: Marker"; break;
-		case GL_DEBUG_TYPE_PUSH_GROUP:          std::cout << "Type: Push Group"; break;
-		case GL_DEBUG_TYPE_POP_GROUP:           std::cout << "Type: Pop Group"; break;
-		case GL_DEBUG_TYPE_OTHER:               std::cout << "Type: Other"; break;
-		} std::cout << std::endl;
-
-		switch (severity)
-		{
-		case GL_DEBUG_SEVERITY_HIGH:         std::cout << "Severity: high"; break;
-		case GL_DEBUG_SEVERITY_MEDIUM:       std::cout << "Severity: medium"; break;
-		case GL_DEBUG_SEVERITY_LOW:          std::cout << "Severity: low"; break;
-		case GL_DEBUG_SEVERITY_NOTIFICATION: std::cout << "Severity: notification"; break;
-		} std::cout << std::endl;
-		std::cout << std::endl;
-	}
+		const void* userParam);
 
 	Application::Application()
 	{
@@ -185,6 +97,8 @@ namespace OpenGLSandbox {
 		// destroy FreeType once we're finished
 		FT_Done_Face(face);
 		FT_Done_FreeType(ft);
+
+		CreateMSDFTexture();
 	}
 
 	Application::~Application()
@@ -261,28 +175,7 @@ namespace OpenGLSandbox {
 
 	void Application::Run()
 	{
-		//msdfgen::FreetypeHandle* ft = msdfgen::initializeFreetype();
-		//if (ft) {
-		//	msdfgen::FontHandle* font = msdfgen::loadFont(ft, "C:\\Windows\\Fonts\\arialbd.ttf");
-		//	if (font) {
-		//		msdfgen::Shape shape;
-		//		if (msdfgen::loadGlyph(shape, font, 'A')) {
-		//			shape.normalize();
-		//			//                      max. angle
-		//			msdfgen::edgeColoringSimple(shape, 3.0);
-		//			//           image width, height
-		//			msdfgen::Bitmap<float, 3> msdf(32, 32);
-		//			//                     range, scale, translation
-		//			msdfgen::generateMSDF(msdf, shape, 4.0, 1.0, msdfgen::Vector2(4.0, 4.0));
-		//			savePng(msdf, "output.png");
-		//		}
-		//		msdfgen::destroyFont(font);
-		//	}
-		//	msdfgen::deinitializeFreetype(ft);
-		//}
-
-
-
+		
 		float vertices[] = {
 		//  positions           texture coordinates 
 		 0.5f,  0.5f, 0.0f,       1.0f, 1.0f,        // top right 
@@ -298,8 +191,8 @@ namespace OpenGLSandbox {
 		float screenQuadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates. NOTE that this plane is now much smaller and at the top of the screen
 		// positions   // texCoords
 		 1.0f,   1.0f,  0.0f, 1.0f,
-		 1.0f,  -1.0f,  0.0f, 0.0f,
 		-1.0f,  -1.0f,  1.0f, 0.0f,
+		 1.0f,  -1.0f,  0.0f, 0.0f,
 
 		-1.0f,  -1.0f,  0.0f, 1.0f,
 		 1.0f,   1.0f,  1.0f, 0.0f,
@@ -435,6 +328,8 @@ namespace OpenGLSandbox {
 
 		glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(m_Width), 0.0f, static_cast<float>(m_Height));
 
+		glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(0.3f, 0.3f, 0.3f));
+
 		// render loop
 		// -----------
 		while (!glfwWindowShouldClose(m_Window))
@@ -445,11 +340,13 @@ namespace OpenGLSandbox {
 
 			// other operations: 
 			float timeValue = (float)glfwGetTime();
-			float greenValue = (sin(timeValue) / 2.0f) + 0.5f;
+			//float greenValue = (sin(timeValue) / 2.0f) + 0.5f;
 
 			// Quad shader uniform
 			m_UnlitShader->Bind();
-			m_UnlitShader->SetUniform4f("u_Color", 0.0f, greenValue, 0.0f, 1.0f);
+			m_UnlitShader->SetUniform4m("u_MVP", scale);
+			m_UnlitShader->SetUniform4f("u_Color", 0.0f, 0.0f, 0.0f, 1.0f);
+			m_UnlitShader->SetUniform1i("u_fontTexture", 0);
 			m_UnlitShader->Unbind();
 
 
@@ -478,6 +375,9 @@ namespace OpenGLSandbox {
 					m_UnlitShader->Bind();
 					glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
 					glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+					glActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_2D, msdfTextureID);
+
 					glFrontFace(GL_CW);
 					glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
 					glBindVertexArray(0);
@@ -530,5 +430,172 @@ namespace OpenGLSandbox {
 		// ------------------------------------------------------------------
 		glfwTerminate();
 	}
+	
+	void Application::RenderText(unsigned int VAO, unsigned int VBO, Shader& shader, std::string text, float x, float y, float scale, glm::vec3 color)
+	{
+		// activate corresponding render state	
+		shader.Bind();
+		glUniform3f(glGetUniformLocation(shader.GetRendererID(), "textColor"), color.x, color.y, color.z);
+		glActiveTexture(GL_TEXTURE0);
+		glBindVertexArray(VAO);
 
+		// iterate through all characters
+		std::string::const_iterator c;
+		for (c = text.begin(); c != text.end(); c++)
+		{
+			Character ch = Characters[*c];
+
+			float xpos = x + ch.Bearing.x * scale;
+			float ypos = y - (ch.Size.y - ch.Bearing.y) * scale;
+
+			float w = ch.Size.x * scale;
+			float h = ch.Size.y * scale;
+			// update VBO for each character
+			float vertices[6][4] = {
+				{ xpos,     ypos + h,   0.0f, 0.0f },
+				{ xpos,     ypos,       0.0f, 1.0f },
+				{ xpos + w, ypos,       1.0f, 1.0f },
+
+				{ xpos,     ypos + h,   0.0f, 0.0f },
+				{ xpos + w, ypos,       1.0f, 1.0f },
+				{ xpos + w, ypos + h,   1.0f, 0.0f }
+			};
+			// render glyph texture over quad
+			glBindTexture(GL_TEXTURE_2D, ch.TextureID);
+			// update content of VBO memory
+			glBindBuffer(GL_ARRAY_BUFFER, VBO);
+			glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); // be sure to use glBufferSubData and not glBufferData
+
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			// render quad
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+			// now advance cursors for next glyph (note that advance is number of 1/64 pixels)
+			x += (ch.Advance >> 6) * scale; // bitshift by 6 to get value in pixels (2^6 = 64 (divide amount of 1/64th pixels by 64 to get amount of pixels))
+		}
+		glBindVertexArray(0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+
+	void Application::CreateMSDFTexture()
+	{
+		std::filesystem::path filepath = "res/Fonts/Forte/ForteRegular.ttf";
+		std::string outputpath = (std::string("res/Exports/") + filepath.stem().string() + std::string(".png"));
+
+		msdfgen::FreetypeHandle* ft = msdfgen::initializeFreetype();
+		if (ft) {
+			msdfgen::FontHandle* font = msdfgen::loadFont(ft, filepath.string().c_str());
+			if (font) {
+				msdfgen::Shape shape;
+				if (msdfgen::loadGlyph(shape, font, 'A')) {
+					shape.normalize();
+					//                      max. angle
+					msdfgen::edgeColoringSimple(shape, 3.0);
+					//           image width, height
+					//msdfgen::Bitmap<float, 1> msdf(32, 32);
+					msdfgen::Bitmap<float, 3> msdf(32, 32);
+
+					//output, shape, range, scale, translation
+					//msdfgen::generateSDF(msdf, shape, 4.0, 1.0, msdfgen::Vector2(4.0, 4.0));
+					msdfgen::generateMSDF(msdf, shape, 4.0, 1.0, msdfgen::Vector2(4.0, 4.0));
+
+					msdfgen::savePng(msdf, (outputpath).c_str());
+
+					
+
+				}
+				msdfgen::destroyFont(font);
+			}
+			msdfgen::deinitializeFreetype(ft);
+		}
+
+
+		//Load 
+
+		stbi_set_flip_vertically_on_load(true);
+
+		int width, height, channels;
+		bool srgb = true;
+
+		stbi_uc* imageData = stbi_load(outputpath.c_str(), &width, &height, &channels, srgb ? STBI_rgb : STBI_rgb_alpha);
+
+		//// generate texture
+		unsigned int texture;
+		glGenTextures(1, &texture);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		glTexImage2D(
+			GL_TEXTURE_2D,
+			0,
+			GL_RGB,
+			width,
+			height,
+			0,
+			GL_RGB,
+			GL_UNSIGNED_BYTE,
+			imageData
+		);
+		// set texture options
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		msdfTextureID = texture;
+
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		stbi_image_free(imageData);
+	}
+
+	static void OnResize(GLFWwindow* window, int width, int height)
+	{
+		// make sure the viewport matches the new window dimensions; note that width and 
+		// height will be significantly larger than specified on retina displays.
+		glViewport(0, 0, width, height);
+	}
+
+	static void APIENTRY glDebugOutput(GLenum source,
+		GLenum type,
+		unsigned int id,
+		GLenum severity,
+		GLsizei length,
+		const char* message,
+		const void* userParam)
+	{
+		if (id == 131169 || id == 131185 || id == 131218 || id == 131204) return; // ignore these non-significant error codes
+
+		std::cout << "---------------" << std::endl;
+		std::cout << "Debug message (" << id << "): " << message << std::endl;
+
+		switch (source)
+		{
+		case GL_DEBUG_SOURCE_API:             std::cout << "Source: API"; break;
+		case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   std::cout << "Source: Window System"; break;
+		case GL_DEBUG_SOURCE_SHADER_COMPILER: std::cout << "Source: Shader Compiler"; break;
+		case GL_DEBUG_SOURCE_THIRD_PARTY:     std::cout << "Source: Third Party"; break;
+		case GL_DEBUG_SOURCE_APPLICATION:     std::cout << "Source: Application"; break;
+		case GL_DEBUG_SOURCE_OTHER:           std::cout << "Source: Other"; break;
+		} std::cout << std::endl;
+
+		switch (type)
+		{
+		case GL_DEBUG_TYPE_ERROR:               std::cout << "Type: Error"; break;
+		case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: std::cout << "Type: Deprecated Behaviour"; break;
+		case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  std::cout << "Type: Undefined Behaviour"; break;
+		case GL_DEBUG_TYPE_PORTABILITY:         std::cout << "Type: Portability"; break;
+		case GL_DEBUG_TYPE_PERFORMANCE:         std::cout << "Type: Performance"; break;
+		case GL_DEBUG_TYPE_MARKER:              std::cout << "Type: Marker"; break;
+		case GL_DEBUG_TYPE_PUSH_GROUP:          std::cout << "Type: Push Group"; break;
+		case GL_DEBUG_TYPE_POP_GROUP:           std::cout << "Type: Pop Group"; break;
+		case GL_DEBUG_TYPE_OTHER:               std::cout << "Type: Other"; break;
+		} std::cout << std::endl;
+
+		switch (severity)
+		{
+		case GL_DEBUG_SEVERITY_HIGH:         std::cout << "Severity: high"; break;
+		case GL_DEBUG_SEVERITY_MEDIUM:       std::cout << "Severity: medium"; break;
+		case GL_DEBUG_SEVERITY_LOW:          std::cout << "Severity: low"; break;
+		case GL_DEBUG_SEVERITY_NOTIFICATION: std::cout << "Severity: notification"; break;
+		} std::cout << std::endl;
+		std::cout << std::endl;
+	}
 }

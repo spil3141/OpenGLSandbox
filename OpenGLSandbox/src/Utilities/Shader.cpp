@@ -2,6 +2,7 @@
 #include <fstream>
 #include <iostream>
 #include <glad/glad.h>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace OpenGLSandbox {
 	Shader::Shader(const std::string& vertexSrcFilepath, const std::string& fragmentSrcFilepath)
@@ -94,5 +95,11 @@ namespace OpenGLSandbox {
 		int attributeLocation = glGetUniformLocation(m_RendererID, uniformName.c_str());
 		glUniform1i(attributeLocation, data);
 	}
+
+	void Shader::SetUniform4m(const std::string& uniformName, const glm::mat4& matrix)
+	{
+		glUniformMatrix4fv(glGetUniformLocation(m_RendererID, uniformName.c_str()), 1, GL_FALSE, glm::value_ptr(matrix));
+	}
+
 }
 

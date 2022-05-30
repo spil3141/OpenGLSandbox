@@ -57,7 +57,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)OpenGLSandbox\vendor\glm\include;$(SolutionDir)OpenGLSandbox\vendor\FreeType\include;$(SolutionDir)OpenGLSandbox\vendor\GLFW\include\GLFW;$(SolutionDir)OpenGLSandbox\vendor\msdfgen\include;$(SolutionDir)OpenGLSandbox\vendor\Glad\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)OpenGLSandbox\vendor\glm\include;$(SolutionDir)OpenGLSandbox\vendor\FreeType\include;$(SolutionDir)OpenGLSandbox\vendor\GLFW\include\GLFW;$(SolutionDir)OpenGLSandbox\vendor\msdfgen\include;$(SolutionDir)OpenGLSandbox\vendor\stb_image;$(SolutionDir)OpenGLSandbox\vendor\Glad\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
@@ -79,7 +79,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)OpenGLSandbox\vendor\glm\include;$(SolutionDir)OpenGLSandbox\vendor\FreeType\include;$(SolutionDir)OpenGLSandbox\vendor\GLFW\include\GLFW;$(SolutionDir)OpenGLSandbox\vendor\msdfgen\include;$(SolutionDir)OpenGLSandbox\vendor\Glad\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)OpenGLSandbox\vendor\glm\include;$(SolutionDir)OpenGLSandbox\vendor\FreeType\include;$(SolutionDir)OpenGLSandbox\vendor\GLFW\include\GLFW;$(SolutionDir)OpenGLSandbox\vendor\msdfgen\include;$(SolutionDir)OpenGLSandbox\vendor\stb_image;$(SolutionDir)OpenGLSandbox\vendor\Glad\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -96,11 +96,14 @@
     <ClCompile Include="src\Utilities\Shader.cpp" />
     <ClCompile Include="src\Application.cpp" />
     <ClCompile Include="src\Utilities\Timer.cpp" />
+    <ClCompile Include="vendor\stb_image\stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Application.h" />
     <ClInclude Include="src\Utilities\Shader.h" />
     <ClInclude Include="src\Utilities\Timer.h" />
+    <ClInclude Include="vendor\stb_image\stb_image.h" />
+    <ClInclude Include="vendor\stb_image\stb_image_write.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="res\Shaders\QuadFragmentShader.shader" />

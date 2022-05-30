@@ -37,7 +37,7 @@ namespace OpenGLSandbox {
 		void ProcessInputs();
 		void CreateWindows();
 		void RenderText(unsigned int VAO, unsigned int VBO, Shader& shader, std::string text, float x, float y, float scale, glm::vec3 color);
-
+		void CreateMSDFTexture();
 	private:
 		GLFWwindow* m_Window = nullptr;
 		unsigned int m_Width = 800;
@@ -48,5 +48,7 @@ namespace OpenGLSandbox {
 		std::unique_ptr<Shader> m_TextShader;
 
 		std::map<GLchar, Character> Characters;
+
+		unsigned int msdfTextureID;
 	};
 }
