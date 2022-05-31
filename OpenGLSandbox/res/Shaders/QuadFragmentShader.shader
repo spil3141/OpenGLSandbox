@@ -18,8 +18,9 @@ float screenPxRange() {
 void main()
 {
 	vec3 msdf = texture(u_fontTexture, io_TexCoord).rgb;
-	float sd = median(msdf.r, msdf.g, msdf.b);
+	/*float sd = median(msdf.r, msdf.g, msdf.b);
 	float screenPxDistance = screenPxRange() * (sd - 0.5);
 	float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
-	o_FinalColor = mix(u_Color, vec4(1.0, 1.0, 1.0, 1.0), opacity);
+	o_FinalColor = mix(u_Color, vec4(1.0, 1.0, 1.0, 1.0), opacity);*/
+	o_FinalColor = vec4(msdf, 1.0f);
 }

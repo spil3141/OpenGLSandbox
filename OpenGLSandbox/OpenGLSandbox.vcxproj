@@ -92,6 +92,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Utilities\CharacterLibrary.cpp" />
     <ClCompile Include="src\EntryPoint.cpp" />
     <ClCompile Include="src\Utilities\Shader.cpp" />
     <ClCompile Include="src\Application.cpp" />
@@ -99,6 +100,7 @@
     <ClCompile Include="vendor\stb_image\stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Utilities\CharacterLibrary.h" />
     <ClInclude Include="src\Application.h" />
     <ClInclude Include="src\Utilities\Shader.h" />
     <ClInclude Include="src\Utilities\Timer.h" />

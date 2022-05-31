@@ -6,19 +6,90 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "msdfgen.h"
 #include "msdfgen-ext.h"
-#include "stb_image.h"
+#include "stb_image_write.h"
 
 namespace OpenGLSandbox {
 
-	static void OnResize(GLFWwindow* window, int width, int height);
+	namespace Utils {
 
-	static void APIENTRY glDebugOutput(GLenum source,
-		GLenum type,
-		unsigned int id,
-		GLenum severity,
-		GLsizei length,
-		const char* message,
-		const void* userParam);
+		/// Clamps the number to the interval from 0 to b.
+		template <typename T>
+		inline T clamp(T n, T b) {
+			return n >= T(0) && n <= b ? n : T(n > T(0)) * b;
+		}
+		
+		inline byte pixelFloatToByte(float x) {
+			return byte(clamp(256.f * x, 255.f));
+		}
+
+		static void OnResize(GLFWwindow* window, int width, int height)
+		{
+			// make sure the viewport matches the new window dimensions; note that width and 
+			// height will be significantly larger than specified on retina displays.
+			glViewport(0, 0, width, height);
+		}
+
+		static void APIENTRY glDebugOutput(GLenum source,
+			GLenum type,
+			unsigned int id,
+			GLenum severity,
+			GLsizei length,
+			const char* message,
+			const void* userParam)
+		{
+			if (id == 131169 || id == 131185 || id == 131218 || id == 131204) return; // ignore these non-significant error codes
+
+			std::cout << "---------------" << std::endl;
+			std::cout << "Debug message (" << id << "): " << message << std::endl;
+
+			switch (source)
+			{
+			case GL_DEBUG_SOURCE_API:             std::cout << "Source: API"; break;
+			case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   std::cout << "Source: Window System"; break;
+			case GL_DEBUG_SOURCE_SHADER_COMPILER: std::cout << "Source: Shader Compiler"; break;
+			case GL_DEBUG_SOURCE_THIRD_PARTY:     std::cout << "Source: Third Party"; break;
+			case GL_DEBUG_SOURCE_APPLICATION:     std::cout << "Source: Application"; break;
+			case GL_DEBUG_SOURCE_OTHER:           std::cout << "Source: Other"; break;
+			} std::cout << std::endl;
+
+			switch (type)
+			{
+			case GL_DEBUG_TYPE_ERROR:               std::cout << "Type: Error"; break;
+			case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: std::cout << "Type: Deprecated Behaviour"; break;
+			case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  std::cout << "Type: Undefined Behaviour"; break;
+			case GL_DEBUG_TYPE_PORTABILITY:         std::cout << "Type: Portability"; break;
+			case GL_DEBUG_TYPE_PERFORMANCE:         std::cout << "Type: Performance"; break;
+			case GL_DEBUG_TYPE_MARKER:              std::cout << "Type: Marker"; break;
+			case GL_DEBUG_TYPE_PUSH_GROUP:          std::cout << "Type: Push Group"; break;
+			case GL_DEBUG_TYPE_POP_GROUP:           std::cout << "Type: Pop Group"; break;
+			case GL_DEBUG_TYPE_OTHER:               std::cout << "Type: Other"; break;
+			} std::cout << std::endl;
+
+			switch (severity)
+			{
+			case GL_DEBUG_SEVERITY_HIGH:         std::cout << "Severity: high"; break;
+			case GL_DEBUG_SEVERITY_MEDIUM:       std::cout << "Severity: medium"; break;
+			case GL_DEBUG_SEVERITY_LOW:          std::cout << "Severity: low"; break;
+			case GL_DEBUG_SEVERITY_NOTIFICATION: std::cout << "Severity: notification"; break;
+			} std::cout << std::endl;
+			std::cout << std::endl;
+		}
+
+		static void ConvertMSDFGBitmapTOBytesArray(msdfgen::Bitmap<float, 3> bitmap, char* out, int& oWidth, int& oHeight)
+		{
+			std::vector<byte> pixels(3 * bitmap.width() * bitmap.height());
+			std::vector<byte>::iterator it = pixels.begin();
+			for (int y = bitmap.height() - 1; y >= 0; --y)
+				for (int x = 0; x < bitmap.width(); ++x) {
+					*it++ = Utils::pixelFloatToByte(bitmap(x, y)[0]);
+					*it++ = Utils::pixelFloatToByte(bitmap(x, y)[1]);
+					*it++ = Utils::pixelFloatToByte(bitmap(x, y)[2]);
+				}
+			memcpy(out, &pixels[0], 3 * bitmap.width() * bitmap.height());
+			oWidth = bitmap.width();
+			oHeight = bitmap.height();
+		}
+	}
 
 	Application::Application()
 	{
@@ -143,7 +214,7 @@ namespace OpenGLSandbox {
 			return;
 		}
 		glfwMakeContextCurrent(m_Window);
-		glfwSetFramebufferSizeCallback(m_Window, OnResize);
+		glfwSetFramebufferSizeCallback(m_Window, Utils::OnResize);
 		glfwSwapInterval(0); // 0 = Off, 1 = v_sync, 2 = v_sync/2, etc
 
 		// glad: load all OpenGL function pointers
@@ -160,7 +231,7 @@ namespace OpenGLSandbox {
 		{
 			glEnable(GL_DEBUG_OUTPUT);
 			glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // makes sure errors are displayed synchronously
-			glDebugMessageCallback(glDebugOutput, nullptr);
+			glDebugMessageCallback(Utils::glDebugOutput, nullptr);
 			glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
 		}
 
@@ -175,7 +246,6 @@ namespace OpenGLSandbox {
 
 	void Application::Run()
 	{
-		
 		float vertices[] = {
 		//  positions           texture coordinates 
 		 0.5f,  0.5f, 0.0f,       1.0f, 1.0f,        // top right 
@@ -376,7 +446,7 @@ namespace OpenGLSandbox {
 					glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
 					glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 					glActiveTexture(GL_TEXTURE0);
-					glBindTexture(GL_TEXTURE_2D, msdfTextureID);
+					glBindTexture(GL_TEXTURE_2D, m_FontTexture);
 
 					glFrontFace(GL_CW);
 					glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
@@ -385,7 +455,7 @@ namespace OpenGLSandbox {
 					// draw text 
 					glFrontFace(GL_CCW);
 					RenderText(Text_VAO, Text_VBO, *m_TextShader, "This is sample text", 25.0f, 25.0f, 1.0f, glm::vec3(0.5, 0.8f, 0.2f));
-					RenderText(Text_VAO, Text_VBO, *m_TextShader, "(C) LearnOpenGL.com", 540.0f, 570.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f));
+					RenderText(Text_VAO, Text_VBO, *m_TextShader, "(B) LearnOpenGL.com", 540.0f, 570.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f));
 					
 					// unbind the first render pass framebuffer: use default 
 					glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -478,60 +548,95 @@ namespace OpenGLSandbox {
 
 	void Application::CreateMSDFTexture()
 	{
-		std::filesystem::path filepath = "res/Fonts/Forte/ForteRegular.ttf";
-		std::string outputpath = (std::string("res/Exports/") + filepath.stem().string() + std::string(".png"));
+		std::filesystem::path filepath = "res/Fonts/OpenSans/OpenSans-Regular.ttf";
+		std::string outputpath = (filepath.parent_path().string() + "/" + filepath.stem().string() + std::string(".png"));
+
+		int max_dim = ((32 << 6));
+		int tex_width = 1;
+		while (tex_width < max_dim) tex_width <<= 1;
+		int tex_height = tex_width;
+		char* pixels = (char*)calloc(tex_width * tex_height * 3, 1);
+		int pen_x = 0, pen_y = 0;
 
 		msdfgen::FreetypeHandle* ft = msdfgen::initializeFreetype();
 		if (ft) {
 			msdfgen::FontHandle* font = msdfgen::loadFont(ft, filepath.string().c_str());
 			if (font) {
-				msdfgen::Shape shape;
-				if (msdfgen::loadGlyph(shape, font, 'A')) {
-					shape.normalize();
-					//                      max. angle
-					msdfgen::edgeColoringSimple(shape, 3.0);
-					//           image width, height
-					//msdfgen::Bitmap<float, 1> msdf(32, 32);
-					msdfgen::Bitmap<float, 3> msdf(32, 32);
+				for (unsigned char ch = 33; ch < 126; ch++)
+				{
+					msdfgen::Shape shape;
+					if (msdfgen::loadGlyph(shape, font, ch)) {
+						bool result = shape.validate();
+						shape.normalize();
+						shape.inverseYAxis = true; // horizontal flip
+						//                      max. angle
+						msdfgen::edgeColoringSimple(shape, 3.0);
+						//           image width, height
+						//msdfgen::Bitmap<float, 1> msdf(32, 32);
+						msdfgen::Bitmap<float, 3> msdf(68, 68);
 
-					//output, shape, range, scale, translation
-					//msdfgen::generateSDF(msdf, shape, 4.0, 1.0, msdfgen::Vector2(4.0, 4.0));
-					msdfgen::generateMSDF(msdf, shape, 4.0, 1.0, msdfgen::Vector2(4.0, 4.0));
+						//output, shape, range, scale, translation
+						//msdfgen::generateSDF(msdf, shape, 4.0, 1.0, msdfgen::Vector2(4.0, 4.0));
+						msdfgen::generateMSDF(msdf, shape, 4.0, 2.0, msdfgen::Vector2(4.0, 4.0));
 
-					msdfgen::savePng(msdf, (outputpath).c_str());
+						//msdfgen::savePng(msdf, ("res/" + std::string("glyph") + std::to_string(ch) + std::string(".png")).c_str());
 
-					
+						int w, h;
+						char* imgBuffer = new char[msdf.width() * msdf.height() * 3];
 
+ 						Utils::ConvertMSDFGBitmapTOBytesArray(msdf, imgBuffer, w, h);
+
+						if (pen_x + w >= tex_width) {
+							pen_x = 0;
+							pen_y += ((h) + 1); 
+						}
+
+						for (int row = 0; row < h; ++row) {
+							for (int col = 0; col < w; ++col) {
+								int x = pen_x + col;
+								int y = pen_y + row;
+								pixels[(y * tex_width + x) * 3 + 0] = imgBuffer[(row * w + col) * 3 + 0];
+								pixels[(y * tex_width + x) * 3 + 1] = imgBuffer[(row * w + col) * 3 + 1];
+								pixels[(y * tex_width + x) * 3 + 2] = imgBuffer[(row * w + col) * 3 + 2];
+							}
+						}
+
+						CharacterSDF character;
+
+						character.x0 = pen_x;
+						character.y0 = pen_y;
+						character.x1 = pen_x + w;
+						character.y1 = pen_y + h;
+						character.m_Bearing.x = 0;
+						character.m_Bearing.y = 0;
+						character.m_Advance = w;
+						character.m_Size = glm::ivec2(w, h);
+						m_CharacterLibrary.Add(ch, character);
+
+						delete[] imgBuffer;
+						pen_x += w + 1;
+					}
 				}
+
 				msdfgen::destroyFont(font);
 			}
 			msdfgen::deinitializeFreetype(ft);
 		}
 
-
-		//Load 
-
-		stbi_set_flip_vertically_on_load(true);
-
-		int width, height, channels;
-		bool srgb = true;
-
-		stbi_uc* imageData = stbi_load(outputpath.c_str(), &width, &height, &channels, srgb ? STBI_rgb : STBI_rgb_alpha);
-
-		//// generate texture
+		////////// generate texture
 		unsigned int texture;
 		glGenTextures(1, &texture);
 		glBindTexture(GL_TEXTURE_2D, texture);
 		glTexImage2D(
 			GL_TEXTURE_2D,
 			0,
-			GL_RGB,
-			width,
-			height,
+			GL_RGB8,
+			tex_width,
+			tex_height,
 			0,
 			GL_RGB,
 			GL_UNSIGNED_BYTE,
-			imageData
+			&pixels[0]
 		);
 		// set texture options
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -539,63 +644,13 @@ namespace OpenGLSandbox {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-		msdfTextureID = texture;
+		m_FontTexture = texture;
 
 		glBindTexture(GL_TEXTURE_2D, 0);
 
-		stbi_image_free(imageData);
+		//stbi_write_png(("res/" + std::string("FontTexture") + std::string(".png")).c_str(), tex_width, tex_height, 3, pixels, tex_width * 3);
+
+		free(pixels);
 	}
 
-	static void OnResize(GLFWwindow* window, int width, int height)
-	{
-		// make sure the viewport matches the new window dimensions; note that width and 
-		// height will be significantly larger than specified on retina displays.
-		glViewport(0, 0, width, height);
-	}
-
-	static void APIENTRY glDebugOutput(GLenum source,
-		GLenum type,
-		unsigned int id,
-		GLenum severity,
-		GLsizei length,
-		const char* message,
-		const void* userParam)
-	{
-		if (id == 131169 || id == 131185 || id == 131218 || id == 131204) return; // ignore these non-significant error codes
-
-		std::cout << "---------------" << std::endl;
-		std::cout << "Debug message (" << id << "): " << message << std::endl;
-
-		switch (source)
-		{
-		case GL_DEBUG_SOURCE_API:             std::cout << "Source: API"; break;
-		case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   std::cout << "Source: Window System"; break;
-		case GL_DEBUG_SOURCE_SHADER_COMPILER: std::cout << "Source: Shader Compiler"; break;
-		case GL_DEBUG_SOURCE_THIRD_PARTY:     std::cout << "Source: Third Party"; break;
-		case GL_DEBUG_SOURCE_APPLICATION:     std::cout << "Source: Application"; break;
-		case GL_DEBUG_SOURCE_OTHER:           std::cout << "Source: Other"; break;
-		} std::cout << std::endl;
-
-		switch (type)
-		{
-		case GL_DEBUG_TYPE_ERROR:               std::cout << "Type: Error"; break;
-		case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: std::cout << "Type: Deprecated Behaviour"; break;
-		case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  std::cout << "Type: Undefined Behaviour"; break;
-		case GL_DEBUG_TYPE_PORTABILITY:         std::cout << "Type: Portability"; break;
-		case GL_DEBUG_TYPE_PERFORMANCE:         std::cout << "Type: Performance"; break;
-		case GL_DEBUG_TYPE_MARKER:              std::cout << "Type: Marker"; break;
-		case GL_DEBUG_TYPE_PUSH_GROUP:          std::cout << "Type: Push Group"; break;
-		case GL_DEBUG_TYPE_POP_GROUP:           std::cout << "Type: Pop Group"; break;
-		case GL_DEBUG_TYPE_OTHER:               std::cout << "Type: Other"; break;
-		} std::cout << std::endl;
-
-		switch (severity)
-		{
-		case GL_DEBUG_SEVERITY_HIGH:         std::cout << "Severity: high"; break;
-		case GL_DEBUG_SEVERITY_MEDIUM:       std::cout << "Severity: medium"; break;
-		case GL_DEBUG_SEVERITY_LOW:          std::cout << "Severity: low"; break;
-		case GL_DEBUG_SEVERITY_NOTIFICATION: std::cout << "Severity: notification"; break;
-		} std::cout << std::endl;
-		std::cout << std::endl;
-	}
 }
